@@ -2,261 +2,555 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gemma 4 E2B 本地問答</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #242836;
+      --border: #2e3345;
+      --text: #e8eaed;
+      --text-muted: #9aa0a6;
+      --accent: #8ab4f8;
+      --accent-hover: #aecbfa;
+      --user-bg: #1e3a5f;
+      --ai-bg: #1e293b;
+      --success: #81c995;
+      --warning: #fdd663;
+      --error: #f28b82;
+    }
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  <meta name="theme-color" content="#111827" />
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-  <title>Gemma 4 E2B iPhone Test</title>
+    /* Header */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
 
-  <link rel="stylesheet" href="./src/style.css" />
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #4285f4, #34a853);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .logo h1 {
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .logo span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: block;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-dot.loading { background: var(--warning); animation: pulse 1.2s infinite; }
+    .status-dot.ready { background: var(--success); }
+    .status-dot.error { background: var(--error); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Main chat area */
+    #chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 860px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .message {
+      display: flex;
+      gap: 12px;
+      max-width: 100%;
+      animation: fadeIn 0.25s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .message.user .avatar {
+      background: #1a73e8;
+      color: white;
+    }
+
+    .message.ai .avatar {
+      background: linear-gradient(135deg, #4285f4, #34a853);
+      color: white;
+    }
+
+    .bubble {
+      padding: 12px 16px;
+      border-radius: 16px;
+      line-height: 1.55;
+      font-size: 0.95rem;
+      max-width: min(680px, 85vw);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .message.user .bubble {
+      background: var(--user-bg);
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.ai .bubble {
+      background: var(--ai-bg);
+      border-bottom-left-radius: 4px;
+    }
+
+    .bubble .typing {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      margin: 0 2px;
+      animation: blink 1.2s infinite;
+    }
+    .bubble .typing:nth-child(2) { animation-delay: 0.2s; }
+    .bubble .typing:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes blink {
+      0%, 80%, 100% { opacity: 0.3; }
+      40% { opacity: 1; }
+    }
+
+    /* Welcome card */
+    .welcome {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+
+    .welcome h2 {
+      color: var(--text);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .welcome p {
+      font-size: 0.9rem;
+      max-width: 420px;
+      margin: 0 auto 20px;
+      line-height: 1.5;
+    }
+
+    .hints {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .hint-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .hint-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Input area */
+    .input-area {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 16px;
+      flex-shrink: 0;
+    }
+
+    .input-wrapper {
+      max-width: 860px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    textarea {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: none;
+      min-height: 48px;
+      max-height: 160px;
+      line-height: 1.4;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    #send-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      border: none;
+      background: var(--accent);
+      color: #0f1117;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+
+    #send-btn:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    #send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .footer-note {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* Loading overlay */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 17, 23, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      gap: 16px;
+    }
+
+    #loading-overlay.hidden { display: none; }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #load-progress {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      max-width: 320px;
+      text-align: center;
+      line-height: 1.5;
+    }
+  </style>
 </head>
-
 <body>
-
-  <header class="header">
-    <div>
-      <h1>Gemma 4 E2B</h1>
-      <p>iPhone / WebGPU 診斷測試</p>
+  <header>
+    <div class="logo">
+      <div class="logo-icon">G</div>
+      <div>
+        <h1>Gemma 4 E2B 本地問答</h1>
+        <span>LiteRT-LM · 完全在裝置端運行</span>
+      </div>
     </div>
-
-    <div id="overallBadge" class="badge waiting">
-      尚未測試
+    <div class="status">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">準備中…</span>
     </div>
   </header>
 
-
-  <main class="container">
-
-    <!-- =========================
-         Diagnostic
-    ========================== -->
-
-    <section class="card">
-
-      <div class="section-title">
-        <h2>① 系統診斷</h2>
-        <span id="diagnosticCount">0 / 5</span>
+  <div id="chat-container">
+    <div class="welcome" id="welcome">
+      <h2>歡迎使用 Gemma 4 E2B</h2>
+      <p>
+        這是 Google 開源的輕量級語言模型，透過 WebGPU 直接在瀏覽器執行。<br>
+        對話內容不會離開你的裝置。
+      </p>
+      <div class="hints">
+        <button class="hint-btn" onclick="sendHint(this)">什麼是 WebGPU？</button>
+        <button class="hint-btn" onclick="sendHint(this)">用繁體中文介紹你自己</button>
+        <button class="hint-btn" onclick="sendHint(this)">寫一首關於春天的短詩</button>
+        <button class="hint-btn" onclick="sendHint(this)">解釋量子糾纏</button>
       </div>
+    </div>
+  </div>
 
-      <div id="diagnosticList" class="diagnostic-list">
-
-        <div id="testBrowser" class="test-item pending">
-          <div class="test-icon">○</div>
-          <div class="test-content">
-            <strong>瀏覽器</strong>
-            <span>尚未測試</span>
-          </div>
-        </div>
-
-        <div id="testWebGPU" class="test-item pending">
-          <div class="test-icon">○</div>
-          <div class="test-content">
-            <strong>WebGPU</strong>
-            <span>尚未測試</span>
-          </div>
-        </div>
-
-        <div id="testAdapter" class="test-item pending">
-          <div class="test-icon">○</div>
-          <div class="test-content">
-            <strong>GPU Adapter</strong>
-            <span>尚未測試</span>
-          </div>
-        </div>
-
-        <div id="testLiteRT" class="test-item pending">
-          <div class="test-icon">○</div>
-          <div class="test-content">
-            <strong>LiteRT-LM JavaScript</strong>
-            <span>尚未測試</span>
-          </div>
-        </div>
-
-        <div id="testModel" class="test-item pending">
-          <div class="test-icon">○</div>
-          <div class="test-content">
-            <strong>Gemma 模型</strong>
-            <span>尚未測試</span>
-          </div>
-        </div>
-
-      </div>
-
-      <button id="diagnosticButton" class="button secondary">
-        開始診斷
-      </button>
-
-    </section>
-
-
-    <!-- =========================
-         Model
-    ========================== -->
-
-    <section class="card">
-
-      <div class="section-title">
-        <h2>② 模型狀態</h2>
-      </div>
-
-      <div class="model-info">
-
-        <div>
-          <span class="label">Model</span>
-          <span class="value">
-            Gemma 4 E2B IT
-          </span>
-        </div>
-
-        <div>
-          <span class="label">Runtime</span>
-          <span class="value">
-            LiteRT-LM
-          </span>
-        </div>
-
-        <div>
-          <span class="label">Deployment</span>
-          <span class="value">
-            Web / WASM
-          </span>
-        </div>
-
-        <div>
-          <span class="label">Model size</span>
-          <span class="value">
-            約 2.01 GB
-          </span>
-        </div>
-
-      </div>
-
-      <div id="modelStatus" class="status-box">
-        尚未載入模型
-      </div>
-
-      <button
-        id="loadModelButton"
-        class="button primary"
+  <div class="input-area">
+    <div class="input-wrapper">
+      <textarea
+        id="user-input"
+        placeholder="輸入你的問題…（Enter 送出，Shift+Enter 換行）"
+        rows="1"
         disabled
-      >
-        載入 Gemma
-      </button>
+      ></textarea>
+      <button id="send-btn" disabled title="送出">➤</button>
+    </div>
+    <div class="footer-note">
+      模型約 2 GB · 首次載入需下載 · 需支援 WebGPU 的瀏覽器（Chrome / Edge 建議）
+    </div>
+  </div>
 
-    </section>
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <div id="load-progress">正在載入 Gemma 4 E2B 模型…<br>首次使用會從 Hugging Face 下載約 2 GB，請稍候</div>
+  </div>
 
-
-    <!-- =========================
-         Chat
-    ========================== -->
-
-    <section class="card">
-
-      <div class="section-title">
-        <h2>③ Gemma Chat</h2>
-      </div>
-
-      <div id="chat" class="chat">
-
-        <div class="message assistant">
-          <div class="message-role">
-            Gemma
-          </div>
-
-          <div class="message-content">
-            請先完成上面的系統診斷，再載入模型。
-          </div>
-        </div>
-
-      </div>
-
-      <div class="input-area">
-
-        <textarea
-          id="userInput"
-          rows="3"
-          placeholder="例如：馬達有怪聲音"
-          disabled
-        ></textarea>
-
-        <button
-          id="sendButton"
-          class="button primary"
-          disabled
-        >
-          送出
-        </button>
-
-      </div>
-
-    </section>
-
-
-    <!-- =========================
-         Debug information
-    ========================== -->
-
-    <section class="card">
-
-      <div class="section-title">
-        <h2>④ 診斷資訊</h2>
-      </div>
-
-      <pre id="debugOutput" class="debug-output">等待測試...</pre>
-
-    </section>
-
-
-    <section class="note">
-
-      <strong>測試注意事項</strong>
-
-      <p>
-        第一次載入 Gemma 需要下載大型模型檔案，
-        可能需要較長時間及大量儲存空間。
-      </p>
-
-      <p>
-        本頁面會把錯誤直接顯示在畫面上，
-        不需要開 Safari Console。
-      </p>
-
-    </section>
-
-  </main>
-
-
-  <!-- LiteRT-LM -->
   <script type="module">
+    import { Engine } from 'https://cdn.jsdelivr.net/npm/@litert-lm/core/+esm';
 
-    try {
+    const MODEL_URL = 'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm';
 
-      const module =
-        await import(
-          "https://cdn.jsdelivr.net/npm/@litert-lm/core/+esm"
-        );
+    const chatContainer = document.getElementById('chat-container');
+    const welcome = document.getElementById('welcome');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadProgress = document.getElementById('load-progress');
 
-      window.LiteRTModule = module;
+    let engine = null;
+    let conversation = null;
+    let isGenerating = false;
 
-      console.log("LiteRT-LM loaded");
-
-    } catch (error) {
-
-      window.LiteRTModuleError = error;
-
-      console.error(error);
-
+    function setStatus(state, text) {
+      statusDot.className = 'status-dot ' + state;
+      statusText.textContent = text;
     }
 
+    function addMessage(role, text, isStreaming = false) {
+      if (welcome) welcome.remove();
+
+      const msg = document.createElement('div');
+      msg.className = `message ${role}`;
+
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = role === 'user' ? '你' : 'G';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      if (isStreaming) {
+        bubble.innerHTML = '<span class="typing"></span><span class="typing"></span><span class="typing"></span>';
+      } else {
+        bubble.textContent = text;
+      }
+
+      msg.appendChild(avatar);
+      msg.appendChild(bubble);
+      chatContainer.appendChild(msg);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+
+      return bubble;
+    }
+
+    async function initModel() {
+      try {
+        setStatus('loading', '載入模型中…');
+        loadProgress.innerHTML = '正在初始化 LiteRT-LM Engine…<br>首次使用會下載約 2 GB 模型檔案';
+
+        engine = await Engine.create({
+          model: MODEL_URL,
+          mainExecutorSettings: {
+            maxNumTokens: 4096,
+          },
+        });
+
+        conversation = await engine.createConversation({
+          preface: {
+            messages: [
+              {
+                role: 'system',
+                content: '你是一個友善、專業的繁體中文助手。回答請使用繁體中文，簡潔且有幫助。'
+              }
+            ]
+          }
+        });
+
+        loadingOverlay.classList.add('hidden');
+        setStatus('ready', '模型已就緒');
+        userInput.disabled = false;
+        sendBtn.disabled = false;
+        userInput.focus();
+      } catch (err) {
+        console.error(err);
+        loadingOverlay.classList.add('hidden');
+        setStatus('error', '載入失敗');
+        loadProgress.textContent = '載入失敗：' + (err.message || err);
+        alert(
+          '模型載入失敗。請確認：\n' +
+          '1. 瀏覽器支援 WebGPU（Chrome / Edge 最新版）\n' +
+          '2. 網路可連線至 Hugging Face\n' +
+          '3. 裝置有足夠記憶體（建議 8GB+）\n\n' +
+          '錯誤詳情：' + (err.message || err)
+        );
+      }
+    }
+
+    async function sendMessage(text) {
+      if (!text.trim() || isGenerating || !conversation) return;
+
+      isGenerating = true;
+      userInput.disabled = true;
+      sendBtn.disabled = true;
+
+      addMessage('user', text);
+      const aiBubble = addMessage('ai', '', true);
+
+      try {
+        let fullText = '';
+        const stream = conversation.sendMessageStreaming(text);
+
+        for await (const chunk of stream) {
+          for (const item of chunk.content || []) {
+            if (item.type === 'text' || typeof item.text === 'string') {
+              fullText += item.text || '';
+              aiBubble.textContent = fullText;
+              chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+          }
+        }
+
+        if (!fullText) {
+          aiBubble.textContent = '（沒有產生回覆）';
+        }
+      } catch (err) {
+        console.error(err);
+        aiBubble.textContent = '發生錯誤：' + (err.message || err);
+      } finally {
+        isGenerating = false;
+        userInput.disabled = false;
+        sendBtn.disabled = false;
+        userInput.focus();
+      }
+    }
+
+    // 事件綁定
+    sendBtn.addEventListener('click', () => {
+      const text = userInput.value;
+      userInput.value = '';
+      sendMessage(text);
+    });
+
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const text = userInput.value;
+        userInput.value = '';
+        sendMessage(text);
+      }
+    });
+
+    // 自動調整 textarea 高度
+    userInput.addEventListener('input', () => {
+      userInput.style.height = 'auto';
+      userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+    });
+
+    // 提示按鈕
+    window.sendHint = (btn) => {
+      sendMessage(btn.textContent);
+    };
+
+    // 啟動
+    initModel();
   </script>
-
-
-  <!-- Application -->
-  <script type="module" src="./src/main.js"></script>
-
 </body>
 </html>
