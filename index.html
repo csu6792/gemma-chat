@@ -1,117 +1,261 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
 
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-  >
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
 
-  <meta name="theme-color" content="#111827">
+  <meta name="theme-color" content="#111827" />
 
-  <title>Gemma 4 E2B Local Chat</title>
+  <title>Gemma 4 E2B iPhone Test</title>
 
-  <link rel="stylesheet" href="./src/style.css">
+  <link rel="stylesheet" href="./src/style.css" />
 </head>
 
 <body>
 
-  <div class="app">
+  <header class="header">
+    <div>
+      <h1>Gemma 4 E2B</h1>
+      <p>iPhone / WebGPU 診斷測試</p>
+    </div>
 
-    <header class="header">
+    <div id="overallBadge" class="badge waiting">
+      尚未測試
+    </div>
+  </header>
 
-      <div>
-        <div class="title">
-          Gemma 4 E2B
-        </div>
 
-        <div class="subtitle">
-          Local WebGPU Chat
-        </div>
+  <main class="container">
+
+    <!-- =========================
+         Diagnostic
+    ========================== -->
+
+    <section class="card">
+
+      <div class="section-title">
+        <h2>① 系統診斷</h2>
+        <span id="diagnosticCount">0 / 5</span>
       </div>
 
-      <div id="status" class="status">
-        尚未載入
-      </div>
+      <div id="diagnosticList" class="diagnostic-list">
 
-    </header>
-
-
-    <main id="chat" class="chat">
-
-      <div class="welcome">
-
-        <h2>
-          Gemma 本機聊天
-        </h2>
-
-        <p>
-          模型會嘗試直接在你的瀏覽器中執行。
-        </p>
-
-        <p>
-          第一次使用需要下載模型。
-        </p>
-
-        <button id="loadButton">
-          載入 Gemma
-        </button>
-
-        <div class="info">
-
-          <div>
-            Model：Gemma 4 E2B
+        <div id="testBrowser" class="test-item pending">
+          <div class="test-icon">○</div>
+          <div class="test-content">
+            <strong>瀏覽器</strong>
+            <span>尚未測試</span>
           </div>
+        </div>
 
-          <div>
-            Runtime：LiteRT-LM
+        <div id="testWebGPU" class="test-item pending">
+          <div class="test-icon">○</div>
+          <div class="test-content">
+            <strong>WebGPU</strong>
+            <span>尚未測試</span>
           </div>
+        </div>
 
-          <div>
-            Backend：WebGPU
+        <div id="testAdapter" class="test-item pending">
+          <div class="test-icon">○</div>
+          <div class="test-content">
+            <strong>GPU Adapter</strong>
+            <span>尚未測試</span>
           </div>
+        </div>
 
+        <div id="testLiteRT" class="test-item pending">
+          <div class="test-icon">○</div>
+          <div class="test-content">
+            <strong>LiteRT-LM JavaScript</strong>
+            <span>尚未測試</span>
+          </div>
+        </div>
+
+        <div id="testModel" class="test-item pending">
+          <div class="test-icon">○</div>
+          <div class="test-content">
+            <strong>Gemma 模型</strong>
+            <span>尚未測試</span>
+          </div>
         </div>
 
       </div>
 
-    </main>
-
-
-    <form id="chatForm" class="composer">
-
-      <textarea
-        id="messageInput"
-        rows="2"
-        disabled
-        placeholder="請先載入模型..."
-      ></textarea>
-
-      <button
-        id="sendButton"
-        type="submit"
-        disabled
-      >
-        送出
+      <button id="diagnosticButton" class="button secondary">
+        開始診斷
       </button>
 
-    </form>
-
-  </div>
+    </section>
 
 
-  <!-- LiteRT-LM Web -->
+    <!-- =========================
+         Model
+    ========================== -->
+
+    <section class="card">
+
+      <div class="section-title">
+        <h2>② 模型狀態</h2>
+      </div>
+
+      <div class="model-info">
+
+        <div>
+          <span class="label">Model</span>
+          <span class="value">
+            Gemma 4 E2B IT
+          </span>
+        </div>
+
+        <div>
+          <span class="label">Runtime</span>
+          <span class="value">
+            LiteRT-LM
+          </span>
+        </div>
+
+        <div>
+          <span class="label">Deployment</span>
+          <span class="value">
+            Web / WASM
+          </span>
+        </div>
+
+        <div>
+          <span class="label">Model size</span>
+          <span class="value">
+            約 2.01 GB
+          </span>
+        </div>
+
+      </div>
+
+      <div id="modelStatus" class="status-box">
+        尚未載入模型
+      </div>
+
+      <button
+        id="loadModelButton"
+        class="button primary"
+        disabled
+      >
+        載入 Gemma
+      </button>
+
+    </section>
+
+
+    <!-- =========================
+         Chat
+    ========================== -->
+
+    <section class="card">
+
+      <div class="section-title">
+        <h2>③ Gemma Chat</h2>
+      </div>
+
+      <div id="chat" class="chat">
+
+        <div class="message assistant">
+          <div class="message-role">
+            Gemma
+          </div>
+
+          <div class="message-content">
+            請先完成上面的系統診斷，再載入模型。
+          </div>
+        </div>
+
+      </div>
+
+      <div class="input-area">
+
+        <textarea
+          id="userInput"
+          rows="3"
+          placeholder="例如：馬達有怪聲音"
+          disabled
+        ></textarea>
+
+        <button
+          id="sendButton"
+          class="button primary"
+          disabled
+        >
+          送出
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         Debug information
+    ========================== -->
+
+    <section class="card">
+
+      <div class="section-title">
+        <h2>④ 診斷資訊</h2>
+      </div>
+
+      <pre id="debugOutput" class="debug-output">等待測試...</pre>
+
+    </section>
+
+
+    <section class="note">
+
+      <strong>測試注意事項</strong>
+
+      <p>
+        第一次載入 Gemma 需要下載大型模型檔案，
+        可能需要較長時間及大量儲存空間。
+      </p>
+
+      <p>
+        本頁面會把錯誤直接顯示在畫面上，
+        不需要開 Safari Console。
+      </p>
+
+    </section>
+
+  </main>
+
+
+  <!-- LiteRT-LM -->
   <script type="module">
 
-    import {
-      Engine
-    } from "https://cdn.jsdelivr.net/npm/@litert-lm/core/+esm";
+    try {
 
-    window.LiteRTEngine = Engine;
+      const module =
+        await import(
+          "https://cdn.jsdelivr.net/npm/@litert-lm/core/+esm"
+        );
+
+      window.LiteRTModule = module;
+
+      console.log("LiteRT-LM loaded");
+
+    } catch (error) {
+
+      window.LiteRTModuleError = error;
+
+      console.error(error);
+
+    }
 
   </script>
 
+
+  <!-- Application -->
   <script type="module" src="./src/main.js"></script>
 
 </body>
