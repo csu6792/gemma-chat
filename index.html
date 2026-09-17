@@ -2,555 +2,359 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gemma 4 E2B 本地問答</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <title>Qwen 0.5B / 0.6B 問答 · WebLLM</title>
   <style>
     :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --surface2: #242836;
-      --border: #2e3345;
+      --bg: #0b0d12;
+      --card: #151922;
+      --border: #2a3140;
       --text: #e8eaed;
-      --text-muted: #9aa0a6;
-      --accent: #8ab4f8;
-      --accent-hover: #aecbfa;
-      --user-bg: #1e3a5f;
-      --ai-bg: #1e293b;
-      --success: #81c995;
-      --warning: #fdd663;
-      --error: #f28b82;
+      --muted: #9aa3b2;
+      --accent: #7aa2ff;
+      --ok: #6bcf8e;
+      --warn: #e6b84d;
+      --err: #f07178;
+      --user: #1a3358;
+      --ai: #1c2333;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--text);
-      height: 100vh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
-
-    /* Header */
     header {
-      background: var(--surface);
+      flex-shrink: 0;
+      padding: 12px 14px;
+      background: var(--card);
       border-bottom: 1px solid var(--border);
-      padding: 14px 20px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      flex-shrink: 0;
+      gap: 10px;
     }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .title { font-size: 0.95rem; font-weight: 600; }
+    .sub { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+    .badge {
+      font-size: 0.72rem;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #222833;
+      color: var(--muted);
+      white-space: nowrap;
     }
+    .badge.ok { color: var(--ok); }
+    .badge.warn { color: var(--warn); }
+    .badge.err { color: var(--err); }
 
-    .logo-icon {
-      width: 36px;
-      height: 36px;
-      background: linear-gradient(135deg, #4285f4, #34a853);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 18px;
-    }
-
-    .logo h1 {
-      font-size: 1.15rem;
-      font-weight: 600;
-    }
-
-    .logo span {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      display: block;
-    }
-
-    .status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--text-muted);
-    }
-
-    .status-dot.loading { background: var(--warning); animation: pulse 1.2s infinite; }
-    .status-dot.ready { background: var(--success); }
-    .status-dot.error { background: var(--error); }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    /* Main chat area */
-    #chat-container {
+    #chat {
       flex: 1;
       overflow-y: auto;
-      padding: 24px 16px;
+      padding: 14px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      max-width: 860px;
-      width: 100%;
-      margin: 0 auto;
-    }
-
-    .message {
-      display: flex;
       gap: 12px;
-      max-width: 100%;
-      animation: fadeIn 0.25s ease;
+      -webkit-overflow-scrolling: touch;
     }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .message.user { flex-direction: row-reverse; }
-
-    .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .message.user .avatar {
-      background: #1a73e8;
-      color: white;
-    }
-
-    .message.ai .avatar {
-      background: linear-gradient(135deg, #4285f4, #34a853);
-      color: white;
-    }
-
+    .msg { display: flex; gap: 8px; max-width: 100%; }
+    .msg.user { flex-direction: row-reverse; }
     .bubble {
-      padding: 12px 16px;
-      border-radius: 16px;
-      line-height: 1.55;
-      font-size: 0.95rem;
-      max-width: min(680px, 85vw);
+      max-width: min(520px, 85vw);
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 0.92rem;
+      line-height: 1.5;
       white-space: pre-wrap;
       word-break: break-word;
     }
+    .msg.user .bubble { background: var(--user); border-bottom-right-radius: 4px; }
+    .msg.ai .bubble { background: var(--ai); border-bottom-left-radius: 4px; }
 
-    .message.user .bubble {
-      background: var(--user-bg);
-      border-bottom-right-radius: 4px;
-    }
-
-    .message.ai .bubble {
-      background: var(--ai-bg);
-      border-bottom-left-radius: 4px;
-    }
-
-    .bubble .typing {
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      background: var(--text-muted);
-      border-radius: 50%;
-      margin: 0 2px;
-      animation: blink 1.2s infinite;
-    }
-    .bubble .typing:nth-child(2) { animation-delay: 0.2s; }
-    .bubble .typing:nth-child(3) { animation-delay: 0.4s; }
-
-    @keyframes blink {
-      0%, 80%, 100% { opacity: 0.3; }
-      40% { opacity: 1; }
-    }
-
-    /* Welcome card */
-    .welcome {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--text-muted);
-    }
-
-    .welcome h2 {
-      color: var(--text);
-      margin-bottom: 8px;
-      font-weight: 500;
-    }
-
-    .welcome p {
-      font-size: 0.9rem;
+    .panel {
+      margin: 8px auto;
       max-width: 420px;
-      margin: 0 auto 20px;
-      line-height: 1.5;
-    }
-
-    .hints {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-    }
-
-    .hint-btn {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 14px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .hint-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    /* Input area */
-    .input-area {
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      padding: 16px;
-      flex-shrink: 0;
-    }
-
-    .input-wrapper {
-      max-width: 860px;
-      margin: 0 auto;
-      display: flex;
-      gap: 10px;
-      align-items: flex-end;
-    }
-
-    textarea {
-      flex: 1;
-      background: var(--surface2);
+      width: 100%;
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 12px 16px;
-      color: var(--text);
+      padding: 14px;
+    }
+    .panel h2 { font-size: 1rem; margin-bottom: 8px; font-weight: 600; }
+    .panel p { font-size: 0.8rem; color: var(--muted); line-height: 1.45; margin-bottom: 12px; }
+    select, button {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
       font-size: 0.95rem;
       font-family: inherit;
-      resize: none;
-      min-height: 48px;
-      max-height: 160px;
+    }
+    select {
+      background: #1e2430;
+      color: var(--text);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+    #loadBtn {
+      background: var(--accent);
+      color: #0b0d12;
+      font-weight: 600;
+    }
+    #loadBtn:disabled { opacity: 0.45; }
+    #progress {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
       line-height: 1.4;
+      min-height: 1.2em;
+    }
+    .bar {
+      height: 6px;
+      background: #1e2430;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.2s;
+    }
+
+    .input-area {
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+      background: var(--card);
+      padding: 10px 12px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+    .row { display: flex; gap: 8px; max-width: 720px; margin: 0 auto; }
+    textarea {
+      flex: 1;
+      min-height: 44px;
+      max-height: 120px;
+      resize: none;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #1e2430;
+      color: var(--text);
+      padding: 11px 12px;
+      font-size: 16px;
+      font-family: inherit;
       outline: none;
-      transition: border-color 0.15s;
     }
-
-    textarea:focus {
-      border-color: var(--accent);
-    }
-
-    textarea:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    #send-btn {
-      width: 48px;
-      height: 48px;
+    textarea:disabled { opacity: 0.5; }
+    #send {
+      width: 44px;
+      height: 44px;
       border-radius: 12px;
       border: none;
       background: var(--accent);
-      color: #0f1117;
-      font-size: 1.2rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s;
+      color: #0b0d12;
+      font-size: 1.1rem;
       flex-shrink: 0;
     }
-
-    #send-btn:hover:not(:disabled) {
-      background: var(--accent-hover);
-    }
-
-    #send-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    .footer-note {
+    #send:disabled { opacity: 0.4; }
+    .hint {
       text-align: center;
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-top: 8px;
-    }
-
-    /* Loading overlay */
-    #loading-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 17, 23, 0.85);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      gap: 16px;
-    }
-
-    #loading-overlay.hidden { display: none; }
-
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    #load-progress {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      max-width: 320px;
-      text-align: center;
-      line-height: 1.5;
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-top: 6px;
     }
   </style>
 </head>
 <body>
   <header>
-    <div class="logo">
-      <div class="logo-icon">G</div>
-      <div>
-        <h1>Gemma 4 E2B 本地問答</h1>
-        <span>LiteRT-LM · 完全在裝置端運行</span>
-      </div>
+    <div>
+      <div class="title">Qwen 問答（WebLLM）</div>
+      <div class="sub">裝置端 · 適合手機試用的小模型</div>
     </div>
-    <div class="status">
-      <div class="status-dot" id="status-dot"></div>
-      <span id="status-text">準備中…</span>
-    </div>
+    <div class="badge" id="status">未載入</div>
   </header>
 
-  <div id="chat-container">
-    <div class="welcome" id="welcome">
-      <h2>歡迎使用 Gemma 4 E2B</h2>
+  <div id="chat">
+    <div class="panel" id="setup">
+      <h2>載入模型</h2>
       <p>
-        這是 Google 開源的輕量級語言模型，透過 WebGPU 直接在瀏覽器執行。<br>
-        對話內容不會離開你的裝置。
+        建議先選 <b>Qwen2.5 0.5B</b>（約 0.9GB VRAM，較穩）。<br>
+        若你的手機記憶體較充裕，可試 <b>Qwen3 0.6B</b>。
       </p>
-      <div class="hints">
-        <button class="hint-btn" onclick="sendHint(this)">什麼是 WebGPU？</button>
-        <button class="hint-btn" onclick="sendHint(this)">用繁體中文介紹你自己</button>
-        <button class="hint-btn" onclick="sendHint(this)">寫一首關於春天的短詩</button>
-        <button class="hint-btn" onclick="sendHint(this)">解釋量子糾纏</button>
-      </div>
+      <select id="model">
+        <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">
+          Qwen2.5 0.5B（推薦，較省記憶體）
+        </option>
+        <option value="Qwen3-0.6B-q4f16_1-MLC">
+          Qwen3 0.6B（稍大，能力可能較好）
+        </option>
+        <option value="SmolLM2-135M-Instruct-q0f16-MLC">
+          SmolLM2 135M（最小，救急用）
+        </option>
+      </select>
+      <button type="button" id="loadBtn">載入模型</button>
+      <div class="bar"><i id="bar"></i></div>
+      <div id="progress">點上方按鈕開始。第一次需下載，請保持畫面開啟。</div>
     </div>
   </div>
 
   <div class="input-area">
-    <div class="input-wrapper">
-      <textarea
-        id="user-input"
-        placeholder="輸入你的問題…（Enter 送出，Shift+Enter 換行）"
-        rows="1"
-        disabled
-      ></textarea>
-      <button id="send-btn" disabled title="送出">➤</button>
+    <div class="row">
+      <textarea id="input" rows="1" placeholder="輸入問題…" disabled></textarea>
+      <button type="button" id="send" disabled>➤</button>
     </div>
-    <div class="footer-note">
-      模型約 2 GB · 首次載入需下載 · 需支援 WebGPU 的瀏覽器（Chrome / Edge 建議）
-    </div>
-  </div>
-
-  <div id="loading-overlay">
-    <div class="spinner"></div>
-    <div id="load-progress">正在載入 Gemma 4 E2B 模型…<br>首次使用會從 Hugging Face 下載約 2 GB，請稍候</div>
+    <div class="hint">完全在瀏覽器執行 · 資料不送出伺服器</div>
   </div>
 
   <script type="module">
-    import { Engine } from 'https://cdn.jsdelivr.net/npm/@litert-lm/core/+esm';
+    import { CreateMLCEngine } from "https://esm.run/@mlc-ai/web-llm";
 
-    const MODEL_URL = 'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm';
-
-    const chatContainer = document.getElementById('chat-container');
-    const welcome = document.getElementById('welcome');
-    const userInput = document.getElementById('user-input');
-    const sendBtn = document.getElementById('send-btn');
-    const statusDot = document.getElementById('status-dot');
-    const statusText = document.getElementById('status-text');
-    const loadingOverlay = document.getElementById('loading-overlay');
-    const loadProgress = document.getElementById('load-progress');
+    const chat = document.getElementById("chat");
+    const setup = document.getElementById("setup");
+    const modelSel = document.getElementById("model");
+    const loadBtn = document.getElementById("loadBtn");
+    const progress = document.getElementById("progress");
+    const bar = document.getElementById("bar");
+    const status = document.getElementById("status");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
 
     let engine = null;
-    let conversation = null;
-    let isGenerating = false;
+    let busy = false;
+    const history = [
+      {
+        role: "system",
+        content: "你是有幫助的助理。請用繁體中文簡潔回答。",
+      },
+    ];
 
-    function setStatus(state, text) {
-      statusDot.className = 'status-dot ' + state;
-      statusText.textContent = text;
+    function setStatus(text, cls) {
+      status.textContent = text;
+      status.className = "badge" + (cls ? " " + cls : "");
     }
 
-    function addMessage(role, text, isStreaming = false) {
-      if (welcome) welcome.remove();
-
-      const msg = document.createElement('div');
-      msg.className = `message ${role}`;
-
-      const avatar = document.createElement('div');
-      avatar.className = 'avatar';
-      avatar.textContent = role === 'user' ? '你' : 'G';
-
-      const bubble = document.createElement('div');
-      bubble.className = 'bubble';
-      if (isStreaming) {
-        bubble.innerHTML = '<span class="typing"></span><span class="typing"></span><span class="typing"></span>';
-      } else {
-        bubble.textContent = text;
-      }
-
-      msg.appendChild(avatar);
-      msg.appendChild(bubble);
-      chatContainer.appendChild(msg);
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-
+    function addMsg(role, text) {
+      const row = document.createElement("div");
+      row.className = "msg " + role;
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
       return bubble;
     }
 
-    async function initModel() {
-      try {
-        setStatus('loading', '載入模型中…');
-        loadProgress.innerHTML = '正在初始化 LiteRT-LM Engine…<br>首次使用會下載約 2 GB 模型檔案';
+    async function loadModel() {
+      if (!navigator.gpu) {
+        setStatus("無 WebGPU", "err");
+        progress.textContent = "此瀏覽器沒有 WebGPU，無法使用 WebLLM。";
+        return;
+      }
 
-        engine = await Engine.create({
-          model: MODEL_URL,
-          mainExecutorSettings: {
-            maxNumTokens: 4096,
+      const modelId = modelSel.value;
+      loadBtn.disabled = true;
+      modelSel.disabled = true;
+      setStatus("載入中…", "warn");
+      progress.textContent = "開始下載 / 初始化…";
+      bar.style.width = "0%";
+
+      try {
+        engine = await CreateMLCEngine(modelId, {
+          initProgressCallback: (r) => {
+            progress.textContent = r.text || "載入中…";
+            if (typeof r.progress === "number") {
+              bar.style.width = Math.round(r.progress * 100) + "%";
+            }
           },
         });
 
-        conversation = await engine.createConversation({
-          preface: {
-            messages: [
-              {
-                role: 'system',
-                content: '你是一個友善、專業的繁體中文助手。回答請使用繁體中文，簡潔且有幫助。'
-              }
-            ]
-          }
-        });
-
-        loadingOverlay.classList.add('hidden');
-        setStatus('ready', '模型已就緒');
-        userInput.disabled = false;
+        bar.style.width = "100%";
+        progress.textContent = "模型就緒，可以開始提問。";
+        setStatus("已就緒", "ok");
+        input.disabled = false;
         sendBtn.disabled = false;
-        userInput.focus();
+        loadBtn.textContent = "已載入";
+        input.focus();
+        addMsg("ai", "模型已載入。你可以直接用中文提問。");
       } catch (err) {
         console.error(err);
-        loadingOverlay.classList.add('hidden');
-        setStatus('error', '載入失敗');
-        loadProgress.textContent = '載入失敗：' + (err.message || err);
-        alert(
-          '模型載入失敗。請確認：\n' +
-          '1. 瀏覽器支援 WebGPU（Chrome / Edge 最新版）\n' +
-          '2. 網路可連線至 Hugging Face\n' +
-          '3. 裝置有足夠記憶體（建議 8GB+）\n\n' +
-          '錯誤詳情：' + (err.message || err)
-        );
+        setStatus("載入失敗", "err");
+        progress.textContent =
+          "失敗：" + (err.message || String(err)) +
+          "\n可改選更小的模型，或關閉其他 App 後重試。";
+        loadBtn.disabled = false;
+        modelSel.disabled = false;
       }
     }
 
-    async function sendMessage(text) {
-      if (!text.trim() || isGenerating || !conversation) return;
+    async function ask() {
+      const text = input.value.trim();
+      if (!text || !engine || busy) return;
 
-      isGenerating = true;
-      userInput.disabled = true;
+      busy = true;
+      input.value = "";
+      input.disabled = true;
       sendBtn.disabled = true;
 
-      addMessage('user', text);
-      const aiBubble = addMessage('ai', '', true);
+      addMsg("user", text);
+      history.push({ role: "user", content: text });
+      const bubble = addMsg("ai", "…");
 
       try {
-        let fullText = '';
-        const stream = conversation.sendMessageStreaming(text);
+        const stream = await engine.chat.completions.create({
+          messages: history,
+          stream: true,
+          temperature: 0.7,
+          max_tokens: 512,
+        });
 
+        let full = "";
         for await (const chunk of stream) {
-          for (const item of chunk.content || []) {
-            if (item.type === 'text' || typeof item.text === 'string') {
-              fullText += item.text || '';
-              aiBubble.textContent = fullText;
-              chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
-          }
+          const delta = chunk.choices?.[0]?.delta?.content || "";
+          full += delta;
+          bubble.textContent = full || "…";
+          chat.scrollTop = chat.scrollHeight;
         }
+        if (!full) bubble.textContent = "（無回覆）";
+        history.push({ role: "assistant", content: full });
 
-        if (!fullText) {
-          aiBubble.textContent = '（沒有產生回覆）';
+        // 避免歷史過長佔記憶體
+        if (history.length > 13) {
+          history.splice(1, 2);
         }
       } catch (err) {
         console.error(err);
-        aiBubble.textContent = '發生錯誤：' + (err.message || err);
+        bubble.textContent = "錯誤：" + (err.message || err);
       } finally {
-        isGenerating = false;
-        userInput.disabled = false;
+        busy = false;
+        input.disabled = false;
         sendBtn.disabled = false;
-        userInput.focus();
+        input.focus();
       }
     }
 
-    // 事件綁定
-    sendBtn.addEventListener('click', () => {
-      const text = userInput.value;
-      userInput.value = '';
-      sendMessage(text);
-    });
-
-    userInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+    loadBtn.addEventListener("click", loadModel);
+    sendBtn.addEventListener("click", ask);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        const text = userInput.value;
-        userInput.value = '';
-        sendMessage(text);
+        ask();
       }
     });
 
-    // 自動調整 textarea 高度
-    userInput.addEventListener('input', () => {
-      userInput.style.height = 'auto';
-      userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
-    });
-
-    // 提示按鈕
-    window.sendHint = (btn) => {
-      sendMessage(btn.textContent);
-    };
-
-    // 啟動
-    initModel();
+    if (!navigator.gpu) {
+      setStatus("無 WebGPU", "err");
+      progress.textContent = "偵測不到 WebGPU。";
+      loadBtn.disabled = true;
+    } else {
+      setStatus("等待載入", "warn");
+    }
   </script>
 </body>
 </html>
