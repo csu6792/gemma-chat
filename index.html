@@ -187,16 +187,19 @@
         若你的手機記憶體較充裕，可試 <b>Qwen3 0.6B</b>。
       </p>
       <select id="model">
-        <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">
-          Qwen2.5 0.5B（推薦，較省記憶體）
-        </option>
-        <option value="Qwen3-0.6B-q4f16_1-MLC">
-          Qwen3 0.6B（稍大，能力可能較好）
-        </option>
-        <option value="SmolLM2-135M-Instruct-q0f16-MLC">
-          SmolLM2 135M（最小，救急用）
-        </option>
-      </select>
+  <option value="gemma3-1b-it-q4f16_1-MLC" selected>
+    Gemma 3 1B（q4）
+  </option>
+  <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">
+    Qwen2.5 0.5B（較小、已驗證）
+  </option>
+  <option value="Qwen3-0.6B-q4f16_1-MLC">
+    Qwen3 0.6B
+  </option>
+  <option value="SmolLM2-135M-Instruct-q0f16-MLC">
+    SmolLM2 135M（最小）
+  </option>
+</select>
       <button type="button" id="loadBtn">載入模型</button>
       <div class="bar"><i id="bar"></i></div>
       <div id="progress">點上方按鈕開始。第一次需下載，請保持畫面開啟。</div>
