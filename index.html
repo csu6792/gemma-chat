@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  >
+
+  <meta name="theme-color" content="#111827">
+
+  <title>Gemma 4 E2B Local Chat</title>
+
+  <link rel="stylesheet" href="./src/style.css">
+</head>
+
+<body>
+
+  <div class="app">
+
+    <header class="header">
+
+      <div>
+        <div class="title">
+          Gemma 4 E2B
+        </div>
+
+        <div class="subtitle">
+          Local WebGPU Chat
+        </div>
+      </div>
+
+      <div id="status" class="status">
+        尚未載入
+      </div>
+
+    </header>
+
+
+    <main id="chat" class="chat">
+
+      <div class="welcome">
+
+        <h2>
+          Gemma 本機聊天
+        </h2>
+
+        <p>
+          模型會嘗試直接在你的瀏覽器中執行。
+        </p>
+
+        <p>
+          第一次使用需要下載模型。
+        </p>
+
+        <button id="loadButton">
+          載入 Gemma
+        </button>
+
+        <div class="info">
+
+          <div>
+            Model：Gemma 4 E2B
+          </div>
+
+          <div>
+            Runtime：LiteRT-LM
+          </div>
+
+          <div>
+            Backend：WebGPU
+          </div>
+
+        </div>
+
+      </div>
+
+    </main>
+
+
+    <form id="chatForm" class="composer">
+
+      <textarea
+        id="messageInput"
+        rows="2"
+        disabled
+        placeholder="請先載入模型..."
+      ></textarea>
+
+      <button
+        id="sendButton"
+        type="submit"
+        disabled
+      >
+        送出
+      </button>
+
+    </form>
+
+  </div>
+
+
+  <!-- LiteRT-LM Web -->
+  <script type="module">
+
+    import {
+      Engine
+    } from "https://cdn.jsdelivr.net/npm/@litert-lm/core/+esm";
+
+    window.LiteRTEngine = Engine;
+
+  </script>
+
+  <script type="module" src="./src/main.js"></script>
+
+</body>
+</html>
