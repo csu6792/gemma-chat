@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-  <title>Qwen 0.5B / 0.6B 問答 · WebLLM</title>
+  <title>Qwen / Gemma 問答 · WebLLM</title>
   <style>
     :root {
       --bg: #0b0d12;
@@ -173,7 +173,7 @@
 <body>
   <header>
     <div>
-      <div class="title">Qwen 問答（WebLLM）</div>
+      <div class="title">LLM 本地問答（WebLLM）</div>
       <div class="sub">裝置端 · 適合手機試用的小模型</div>
     </div>
     <div class="badge" id="status">未載入</div>
@@ -183,62 +183,41 @@
     <div class="panel" id="setup">
       <h2>載入模型</h2>
       <p>
-        建議先選 <b>Qwen2.5 0.5B</b>（約 0.9GB VRAM，較穩）。<br>
-        若你的手機記憶體較充裕，可試 <b>Qwen3 0.6B</b>。
+        建議先選 <b>Gemma 3 1B</b> 或 <b>Qwen2.5 0.5B</b>（VRAM 佔用極低、載入穩）。
       </p>
       <select id="model">
+        <option value="gemma-3-1b-it-q4f16_1-MLC" selected>
+          Gemma 3 1B Instruct（q4 · 約 0.9 GB）
+        </option>
 
-        <option value="gemma-3-1b-it-q4f16_1-MLC">
-  Gemma 3 1B
-</option>
-  <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC" selected>
-    Llama 3.2 1B Instruct（q4 · 約 879 MB）
-  </option>
+        <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">
+          Llama 3.2 1B Instruct（q4 · 約 879 MB）
+        </option>
 
-  <option value="Llama-3.2-1B-Instruct-q4f32_1-MLC">
-    Llama 3.2 1B Instruct（q4f32 · 約 1.13 GB）
-  </option>
+        <option value="Llama-3.2-1B-Instruct-q4f32_1-MLC">
+          Llama 3.2 1B Instruct（q4f32 · 約 1.13 GB）
+        </option>
 
-  <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">
-    Llama 3.2 3B Instruct（q4 · 約 2.26 GB）
-  </option>
+        <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">
+          Llama 3.2 3B Instruct（q4 · 約 2.26 GB）
+        </option>
 
-  <option value="Llama-3.2-3B-Instruct-q4f32_1-MLC">
-    Llama 3.2 3B Instruct（q4f32 · 約 2.95 GB）
-  </option>
+        <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">
+          Qwen2.5 0.5B Instruct
+        </option>
 
-  <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">
-    Qwen2.5 0.5B Instruct
-  </option>
+        <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">
+          Qwen2.5 1.5B Instruct
+        </option>
 
-  <option value="Qwen3-0.6B-q4f16_1-MLC">
-    Qwen3 0.6B
-  </option>
+        <option value="SmolLM2-135M-Instruct-q0f16-MLC">
+          SmolLM2 135M
+        </option>
 
-  <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">
-    Qwen2.5 1.5B Instruct
-  </option>
-
-  <option value="Qwen3-1.7B-q4f16_1-MLC">
-    Qwen3 1.7B
-  </option>
-
-  <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">
-    Phi-3.5 Mini Instruct
-  </option>
-
-  <option value="SmolLM2-135M-Instruct-q0f16-MLC">
-    SmolLM2 135M
-  </option>
-
-  <option value="SmolLM2-360M-Instruct-q4f16_1-MLC">
-    SmolLM2 360M
-  </option>
-
-  <option value="SmolLM2-1.7B-Instruct-q4f16_1-MLC">
-    SmolLM2 1.7B Instruct
-  </option>
-</select>
+        <option value="SmolLM2-1.7B-Instruct-q4f16_1-MLC">
+          SmolLM2 1.7B Instruct
+        </option>
+      </select>
       <button type="button" id="loadBtn">載入模型</button>
       <div class="bar"><i id="bar"></i></div>
       <div id="progress">點上方按鈕開始。第一次需下載，請保持畫面開啟。</div>
@@ -306,15 +285,31 @@
       progress.textContent = "開始下載 / 初始化…";
       bar.style.width = "0%";
 
+      // 配置 WebLLM 初始化選項
+      const options = {
+        initProgressCallback: (r) => {
+          progress.textContent = r.text || "載入中…";
+          if (typeof r.progress === "number") {
+            bar.style.width = Math.round(r.progress * 100) + "%";
+          }
+        },
+      };
+
+      // 若選擇 Gemma 3 1B，加入 Hugging Face 的動態模型配置與 WASM 庫連結
+      if (modelId === "gemma-3-1b-it-q4f16_1-MLC") {
+        options.appConfig = {
+          model_list: [
+            {
+              model: "https://huggingface.co/mlc-ai/gemma-3-1b-it-q4f16_1-MLC",
+              model_id: "gemma-3-1b-it-q4f16_1-MLC",
+              model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_80/gemma-3-1b-it-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+            },
+          ],
+        };
+      }
+
       try {
-        engine = await CreateMLCEngine(modelId, {
-          initProgressCallback: (r) => {
-            progress.textContent = r.text || "載入中…";
-            if (typeof r.progress === "number") {
-              bar.style.width = Math.round(r.progress * 100) + "%";
-            }
-          },
-        });
+        engine = await CreateMLCEngine(modelId, options);
 
         bar.style.width = "100%";
         progress.textContent = "模型就緒，可以開始提問。";
@@ -400,3 +395,4 @@
   </script>
 </body>
 </html>
+
