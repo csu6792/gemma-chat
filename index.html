@@ -254,150 +254,580 @@
   </div>
 
   <script type="module">
-    import { CreateMLCEngine } from "https://esm.run/@mlc-ai/web-llm";
+  import {
+    CreateMLCEngine,
+    prebuiltAppConfig
+  } from "https://esm.run/@mlc-ai/web-llm";
 
-    const chat = document.getElementById("chat");
-    const setup = document.getElementById("setup");
-    const modelSel = document.getElementById("model");
-    const loadBtn = document.getElementById("loadBtn");
-    const progress = document.getElementById("progress");
-    const bar = document.getElementById("bar");
-    const status = document.getElementById("status");
-    const input = document.getElementById("input");
-    const sendBtn = document.getElementById("send");
+  const chat = document.getElementById("chat");
+  const setup = document.getElementById("setup");
+  const modelSel = document.getElementById("model");
+  const loadBtn = document.getElementById("loadBtn");
+  const progress = document.getElementById("progress");
+  const bar = document.getElementById("bar");
+  const status = document.getElementById("status");
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("send");
 
-    let engine = null;
-    let busy = false;
-    const history = [
-      {
-        role: "system",
-        content: "你是有幫助的助理。請用繁體中文簡潔回答。",
-      },
-    ];
+  let engine = null;
+  let busy = false;
 
-    function setStatus(text, cls) {
-      status.textContent = text;
-      status.className = "badge" + (cls ? " " + cls : "");
+  const history = [
+    {
+      role: "system",
+      content: "你是有幫助的助理。請用繁體中文簡潔回答。",
+    },
+  ];
+
+  // =========================
+  // 診斷資訊
+  // =========================
+
+  const debugPanel = document.createElement("div");
+  debugPanel.style.cssText = `
+    margin: 8px auto;
+    max-width: 420px;
+    width: 100%;
+    background: #10141c;
+    border: 1px solid #2a3140;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #9aa3b2;
+    white-space: pre-wrap;
+    word-break: break-word;
+  `;
+
+  debugPanel.textContent = "診斷：初始化中…";
+
+  setup.parentNode.insertBefore(debugPanel, setup.nextSibling);
+
+  let debug = {
+    startTime: 0,
+    lastProgressTime: 0,
+    lastProgress: 0,
+    lastText: "",
+    modelId: "",
+  };
+
+  function updateDebug(extra = "") {
+    const now = Date.now();
+
+    const elapsed =
+      debug.startTime
+        ? ((now - debug.startTime) / 1000).toFixed(1)
+        : "0.0";
+
+    const idle =
+      debug.lastProgressTime
+        ? ((now - debug.lastProgressTime) / 1000).toFixed(1)
+        : "0.0";
+
+    const progressText =
+      debug.lastProgress >= 0
+        ? `${debug.lastProgress}%`
+        : "未知";
+
+    debugPanel.textContent =
+`診斷資訊
+──────────────
+模型：${debug.modelId || "尚未選擇"}
+WebGPU：${navigator.gpu ? "✓ 支援" : "✗ 不支援"}
+經過時間：${elapsed}s
+下載進度：${progressText}
+最後進度：${idle}s 前
+狀態：${debug.lastText || "等待…"}
+${extra ? "\n" + extra : ""}`;
+  }
+
+  function setStatus(text, cls) {
+    status.textContent = text;
+    status.className = "badge" + (cls ? " " + cls : "");
+  }
+
+  function addMsg(role, text) {
+    const row = document.createElement("div");
+    row.className = "msg " + role;
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+
+    row.appendChild(bubble);
+    chat.appendChild(row);
+
+    chat.scrollTop = chat.scrollHeight;
+
+    return bubble;
+  }
+
+  // =========================
+  // 顯示 WebLLM 模型清單
+  // =========================
+
+  function checkModelExists(modelId) {
+    const found = prebuiltAppConfig.model_list.find(
+      x => x.model_id === modelId
+    );
+
+    console.log("[WebLLM] model:", modelId);
+    console.log("[WebLLM] config:", found);
+
+    if (!found) {
+      console.warn(
+        "[WebLLM] 找不到預建模型：",
+        modelId
+      );
     }
 
-    function addMsg(role, text) {
-      const row = document.createElement("div");
-      row.className = "msg " + role;
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-      bubble.textContent = text;
-      row.appendChild(bubble);
-      chat.appendChild(row);
-      chat.scrollTop = chat.scrollHeight;
-      return bubble;
-    }
+    return found;
+  }
 
-    async function loadModel() {
-      if (!navigator.gpu) {
-        setStatus("無 WebGPU", "err");
-        progress.textContent = "此瀏覽器沒有 WebGPU，無法使用 WebLLM。";
-        return;
+  // =========================
+  // 清除快取
+  // =========================
+
+  async function clearModelCache() {
+    const ok = confirm(
+      "確定要清除瀏覽器中的 WebLLM 模型快取嗎？\n\n" +
+      "下次載入模型需要重新下載。"
+    );
+
+    if (!ok) return;
+
+    try {
+      const keys = await caches.keys();
+
+      let removed = 0;
+
+      for (const key of keys) {
+        if (
+          key.toLowerCase().includes("webllm") ||
+          key.toLowerCase().includes("mlc")
+        ) {
+          await caches.delete(key);
+          removed++;
+        }
       }
 
-      const modelId = modelSel.value;
-      loadBtn.disabled = true;
-      modelSel.disabled = true;
-      setStatus("載入中…", "warn");
-      progress.textContent = "開始下載 / 初始化…";
-      bar.style.width = "0%";
+      alert(
+        `完成。\n\n清除了 ${removed} 個相關 Cache。\n\n` +
+        "建議重新整理頁面後再測試。"
+      );
 
-      try {
-        engine = await CreateMLCEngine(modelId, {
-          initProgressCallback: (r) => {
-            progress.textContent = r.text || "載入中…";
-            if (typeof r.progress === "number") {
-              bar.style.width = Math.round(r.progress * 100) + "%";
-            }
-          },
-        });
+      console.log("[WebLLM] Cache keys:", keys);
 
-        bar.style.width = "100%";
-        progress.textContent = "模型就緒，可以開始提問。";
-        setStatus("已就緒", "ok");
-        input.disabled = false;
-        sendBtn.disabled = false;
-        loadBtn.textContent = "已載入";
-        input.focus();
-        addMsg("ai", "模型已載入。你可以直接用中文提問。");
-      } catch (err) {
-        console.error(err);
-        setStatus("載入失敗", "err");
+    } catch (err) {
+      console.error(err);
+
+      alert(
+        "清除 Cache 失敗：\n\n" +
+        (err.message || String(err))
+      );
+    }
+  }
+
+  // =========================
+  // 載入模型
+  // =========================
+
+  async function loadModel() {
+
+    if (!navigator.gpu) {
+      setStatus("無 WebGPU", "err");
+
+      progress.textContent =
+        "此瀏覽器沒有 WebGPU，無法使用 WebLLM。";
+
+      debug.lastText = "WebGPU 不可用";
+      updateDebug();
+
+      return;
+    }
+
+    const modelId = modelSel.value;
+
+    debug = {
+      startTime: Date.now(),
+      lastProgressTime: Date.now(),
+      lastProgress: 0,
+      lastText: "開始初始化…",
+      modelId,
+    };
+
+    updateDebug();
+
+    const modelInfo = checkModelExists(modelId);
+
+    if (!modelInfo) {
+      const message =
+        `模型 ${modelId} 不在目前 WebLLM 的 prebuiltAppConfig 中。\n\n` +
+        "這可能代表模型 ID 不正確，或目前 WebLLM 版本沒有內建這個模型。";
+
+      console.error(message);
+
+      progress.textContent = message;
+      debug.lastText = "找不到模型設定";
+      updateDebug(message);
+
+      setStatus("模型不存在", "err");
+
+      return;
+    }
+
+    loadBtn.disabled = true;
+    modelSel.disabled = true;
+
+    setStatus("載入中…", "warn");
+
+    progress.textContent =
+      "開始下載 / 初始化…";
+
+    bar.style.width = "0%";
+
+    console.log("================================");
+    console.log("[WebLLM] 開始載入");
+    console.log("[WebLLM] modelId =", modelId);
+    console.log("[WebLLM] model =", modelInfo.model);
+    console.log("[WebLLM] model_lib =", modelInfo.model_lib);
+    console.log("[WebLLM] VRAM =", modelInfo.vram_required_MB, "MB");
+    console.log("================================");
+
+    let watchdog = setInterval(() => {
+
+      const idle =
+        (Date.now() - debug.lastProgressTime) / 1000;
+
+      if (idle >= 15 && !engine) {
+
+        debug.lastText =
+          `⚠️ ${idle.toFixed(0)} 秒沒有收到新的下載進度`;
+
+        updateDebug(
+          "可能原因：\n" +
+          "• CDN / Hugging Face 連線\n" +
+          "• 大型模型下載速度很慢\n" +
+          "• 瀏覽器 Cache\n" +
+          "• WebGPU 初始化\n" +
+          "• 網路被代理 / 防火牆限制"
+        );
+
         progress.textContent =
-          "失敗：" + (err.message || String(err)) +
-          "\n可改選更小的模型，或關閉其他 App 後重試。";
-        loadBtn.disabled = false;
-        modelSel.disabled = false;
+          "⚠️ 超過 15 秒沒有下載進度，可能卡在網路或初始化。";
+
+      } else {
+        updateDebug();
       }
+
+    }, 1000);
+
+    try {
+
+      engine = await CreateMLCEngine(
+        modelId,
+        {
+
+          initProgressCallback: (r) => {
+
+            console.log("[WebLLM progress]", r);
+
+            debug.lastProgressTime = Date.now();
+
+            if (typeof r.progress === "number") {
+              debug.lastProgress =
+                Math.round(r.progress * 100);
+            }
+
+            debug.lastText =
+              r.text || "載入中…";
+
+            progress.textContent =
+              r.text ||
+              "載入中…";
+
+            if (
+              typeof r.progress === "number"
+            ) {
+              bar.style.width =
+                Math.round(r.progress * 100) + "%";
+            }
+
+            updateDebug();
+
+          },
+
+        }
+      );
+
+      clearInterval(watchdog);
+
+      bar.style.width = "100%";
+
+      progress.textContent =
+        "模型就緒，可以開始提問。";
+
+      debug.lastProgress = 100;
+      debug.lastText = "模型就緒";
+
+      updateDebug(
+        "✓ WebLLM engine 建立成功"
+      );
+
+      setStatus("已就緒", "ok");
+
+      input.disabled = false;
+      sendBtn.disabled = false;
+
+      loadBtn.textContent = "已載入";
+
+      input.focus();
+
+      addMsg(
+        "ai",
+        "模型已載入。你可以直接用中文提問。"
+      );
+
+    } catch (err) {
+
+      clearInterval(watchdog);
+
+      console.error(
+        "[WebLLM ERROR]",
+        err
+      );
+
+      console.error(
+        "[WebLLM ERROR STACK]",
+        err?.stack
+      );
+
+      engine = null;
+
+      const message =
+        err?.message ||
+        String(err);
+
+      progress.textContent =
+        "❌ 載入失敗：\n" +
+        message;
+
+      debug.lastText =
+        "載入失敗";
+
+      updateDebug(
+        "錯誤：\n" +
+        message +
+        "\n\n" +
+        "詳細資訊請看 Console。"
+      );
+
+      setStatus(
+        "載入失敗",
+        "err"
+      );
+
+      loadBtn.disabled = false;
+      modelSel.disabled = false;
+
+    }
+  }
+
+  // =========================
+  // 問答
+  // =========================
+
+  async function ask() {
+
+    const text =
+      input.value.trim();
+
+    if (
+      !text ||
+      !engine ||
+      busy
+    ) {
+      return;
     }
 
-    async function ask() {
-      const text = input.value.trim();
-      if (!text || !engine || busy) return;
+    busy = true;
 
-      busy = true;
-      input.value = "";
-      input.disabled = true;
-      sendBtn.disabled = true;
+    input.value = "";
 
-      addMsg("user", text);
-      history.push({ role: "user", content: text });
-      const bubble = addMsg("ai", "…");
+    input.disabled = true;
+    sendBtn.disabled = true;
 
-      try {
-        const stream = await engine.chat.completions.create({
+    addMsg(
+      "user",
+      text
+    );
+
+    history.push({
+      role: "user",
+      content: text,
+    });
+
+    const bubble =
+      addMsg("ai", "…");
+
+    try {
+
+      const stream =
+        await engine.chat.completions.create({
           messages: history,
           stream: true,
           temperature: 0.7,
           max_tokens: 512,
         });
 
-        let full = "";
-        for await (const chunk of stream) {
-          const delta = chunk.choices?.[0]?.delta?.content || "";
-          full += delta;
-          bubble.textContent = full || "…";
-          chat.scrollTop = chat.scrollHeight;
-        }
-        if (!full) bubble.textContent = "（無回覆）";
-        history.push({ role: "assistant", content: full });
+      let full = "";
 
-        // 避免歷史過長佔記憶體
-        if (history.length > 13) {
-          history.splice(1, 2);
-        }
-      } catch (err) {
-        console.error(err);
-        bubble.textContent = "錯誤：" + (err.message || err);
-      } finally {
-        busy = false;
-        input.disabled = false;
-        sendBtn.disabled = false;
-        input.focus();
+      for await (
+        const chunk of stream
+      ) {
+
+        const delta =
+          chunk.choices?.[0]?.delta?.content ||
+          "";
+
+        full += delta;
+
+        bubble.textContent =
+          full || "…";
+
+        chat.scrollTop =
+          chat.scrollHeight;
       }
-    }
 
-    loadBtn.addEventListener("click", loadModel);
-    sendBtn.addEventListener("click", ask);
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (!full) {
+        bubble.textContent =
+          "（無回覆）";
+      }
+
+      history.push({
+        role: "assistant",
+        content: full,
+      });
+
+      // 避免歷史過長
+      if (history.length > 13) {
+        history.splice(1, 2);
+      }
+
+    } catch (err) {
+
+      console.error(
+        "[CHAT ERROR]",
+        err
+      );
+
+      bubble.textContent =
+        "錯誤：" +
+        (err.message || err);
+
+    } finally {
+
+      busy = false;
+
+      input.disabled = false;
+      sendBtn.disabled = false;
+
+      input.focus();
+    }
+  }
+
+  // =========================
+  // UI
+  // =========================
+
+  loadBtn.addEventListener(
+    "click",
+    loadModel
+  );
+
+  sendBtn.addEventListener(
+    "click",
+    ask
+  );
+
+  input.addEventListener(
+    "keydown",
+    (e) => {
+
+      if (
+        e.key === "Enter" &&
+        !e.shiftKey
+      ) {
+
         e.preventDefault();
+
         ask();
       }
-    });
-
-    if (!navigator.gpu) {
-      setStatus("無 WebGPU", "err");
-      progress.textContent = "偵測不到 WebGPU。";
-      loadBtn.disabled = true;
-    } else {
-      setStatus("等待載入", "warn");
     }
-  </script>
+  );
+
+  // 清除 Cache 按鈕
+  const clearBtn =
+    document.createElement("button");
+
+  clearBtn.type = "button";
+
+  clearBtn.textContent =
+    "🧹 清除模型快取";
+
+  clearBtn.style.cssText = `
+    margin-top: 8px;
+    background: #252b36;
+    color: #e8eaed;
+    border: 1px solid #2a3140;
+  `;
+
+  clearBtn.addEventListener(
+    "click",
+    clearModelCache
+  );
+
+  loadBtn.parentNode.insertBefore(
+    clearBtn,
+    loadBtn.nextSibling
+  );
+
+  // =========================
+  // 初始狀態
+  // =========================
+
+  if (!navigator.gpu) {
+
+    setStatus(
+      "無 WebGPU",
+      "err"
+    );
+
+    progress.textContent =
+      "偵測不到 WebGPU。";
+
+    loadBtn.disabled = true;
+
+    debug.lastText =
+      "WebGPU 不支援";
+
+    updateDebug();
+
+  } else {
+
+    setStatus(
+      "等待載入",
+      "warn"
+    );
+
+    debug.lastText =
+      "WebGPU ✓ 可用";
+
+    updateDebug();
+
+  }
+
+</script>
 </body>
 </html>
 
